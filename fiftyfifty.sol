@@ -22,6 +22,7 @@ contract RaffleEntry {
     struct Raffle{
         uint256 ID;
         uint256 rafflebalance;
+        uint256 rafflereward;
         uint256 start;
         uint256 end;
         address winner;
@@ -63,10 +64,6 @@ contract RaffleEntry {
         return owner;
     }
 
-    function withdraw() public payable isOwner{
-        (bool os,)= payable(owner).call{value:address(this).balance}("");
-        require(os);
- }
 
     function startRaffle(uint256 _hours, address _benefactor) public isController{
         require(!liveraffle, "There Is An ongoing Raffle");
@@ -76,6 +73,7 @@ contract RaffleEntry {
         Raffle memory newRaffle = Raffle({
             ID: rafflecounter,
             rafflebalance: 0,
+            rafflereward: 0,
             start: block.timestamp,
             end: (block.timestamp+duration),
             winner: 0x000000000000000000000000000000000000dEaD,
@@ -106,16 +104,37 @@ contract RaffleEntry {
         return tickets[_address];
     }
 
-        function finalize() internal {
+        function finalizeRaffle() public isController {
         require(liveraffle);
         require(raffles[rafflecounter].end <= block.timestamp);
         raffles[rafflecounter].benefactorWithdrawn = false;
         raffles[rafflecounter].winnerWithdrawn = false;
         liveraffle = false;
-        for(uint i=0; i < raffles[rafflecounter].entries.length; i++)
+        raffles[rafflecounter].rafflereward = (raffles[rafflecounter].rafflebalance/2);
+        for(uint i=0; i < raffles[rafflecounter].entries.length; i++){
             tickets[raffles[rafflecounter].entries[i]] = 0;
+        }
+        rafflecounter++;
+    }
+
+    function withdrawRaffle() public payable{
+        require(!liveraffle);
+        Raffle memory thisraffle=raffles[rafflecounter-1];
+        require((msg.sender == thisraffle.benefactor) ||
+                (msg.sender == thisraffle.winner),
+                 "Must Be Benefactor Or Winner");        
+        require((!thisraffle.benefactorWithdrawn) ||
+                (!thisraffle.winnerWithdrawn)
+        );
+        if(msg.sender == thisraffle.winner){
+            thisraffle.winnerWithdrawn = true;
+        }else if(msg.sender == thisraffle.benefactor){
+            thisraffle.benefactorWithdrawn = true;
+        }
+        (bool os, ) = payable(msg.sender).call{value:thisraffle.rafflereward}("");
+        require(os);
     }
 
 
-
-}
+        
+ }
