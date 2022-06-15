@@ -112,7 +112,7 @@ contract RaffleEntry is VRFConsumerBaseV2{
         raffles[rafflecounter].rafflebalance *= 95;
         raffles[rafflecounter].rafflebalance /= 100;
         //Call Chainlink For Random Number
-   //     randomwinner = random(entries.length);
+        randomwinner = random(entries.length);
     }
 
     function finalizeRaffle() public isOwner payable{
