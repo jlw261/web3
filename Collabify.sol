@@ -100,6 +100,9 @@ contract CollabifyPass is ERC1155, Ownable, ERC1155Supply, ReentrancyGuard, Paym
         index = _index;
     }
     
+    function changeApproval(address _address, bool _status) public onlyOwner{
+        _approvedAddresses[_address] = _status;
+    }    
         
 
 //    function setWhitelistMerkle(bytes32 _merkleRoot) public onlyOwner {
