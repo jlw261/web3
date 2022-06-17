@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: WTFPL
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.7;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
@@ -7,48 +7,39 @@ import "@openzeppelin/contracts/token/ERC1155/extensions/ERC1155Supply.sol";
 import "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/finance/PaymentSplitter.sol";
-
-/**
-[
-"0xdD870fA1b7C4700F2BD7f44238821C26f7392148",
-"0x583031D1113aD414F02576BD6afaBfb302140225",
-"0x4B0897b0513fdC7C541B6d9D7E929C4e5364D2dB"
-]
-**/
-/**
-[
-1,
-19,
-80
-]
-**/
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 
 
 contract CollabifyPass is ERC1155, Ownable, ERC1155Supply, ReentrancyGuard, PaymentSplitter {
     string public name = "Collabify Alpha Pass";
     string public symbol = "CLBFY";
-    uint256 public salePrice = 0.1 ether;
+    uint256 public salePrice = 0 ether;
     uint256 public presalePrice = 0.08 ether;
-    uint16 public maxSupply = 10000;
-    uint16 index = 0;
+    uint16 public supplyRemaining = 10000;
+    uint16 public index = 2;
     
     mapping(address => bool) public _publicMinted;
     mapping(address => bool) public _presaleMinted;
+    mapping(address => uint256) public _fanPoints;
+    mapping(address => bool) private _approvedAddresses;
 
     bool public pause = false;
     bool public whitelist = false;
-    bool public withdrawable;
+
 
    // bytes32 public whitelistMerkle = ;
 
 
-
-
     
     constructor(address[] memory _payees, uint256[] memory _shares)
-    ERC1155("ipfs://QmTeT6w96z477M1ej6xqzFFweSjdcmcY2YHmsPiKLwC5ci") 
+    ERC1155("ipfs://QmTycz95ud6xMKGkuhmhURKuauhH1PNFxKkEpyh2XCFMEX/{id}.json") 
     PaymentSplitter(_payees, _shares) payable{}
+
+    modifier isApproved{
+        require(_approvedAddresses[msg.sender], "Not Approved");
+        _;
+    }
 
 
 
@@ -59,21 +50,27 @@ contract CollabifyPass is ERC1155, Ownable, ERC1155Supply, ReentrancyGuard, Paym
         if (!whitelist){
             require(msg.value >= salePrice, "Insufficient ether value");
             require(!_publicMinted[msg.sender], "You can only mint 1");
-            require(maxSupply > index, "Exceeds available supply");
+            require(supplyRemaining > 0, "Exceeds available supply");
             _publicMinted[msg.sender] = true;
             _mint(msg.sender, index, 1, "");
-            index++;
+            supplyRemaining--;
         } else if (whitelist){
-//            bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
+        //      bytes32 leaf = keccak256(abi.encodePacked(msg.sender));
         //    require(MerkleProof.verify(_merkleProof, whitelistMerkle, leaf), "Not whitelisted");
             require(msg.value >= presalePrice, "Insufficient ether value");
             require(!_presaleMinted[msg.sender], "You can only mint 1");
-            require(maxSupply > index, "Exceeds available supply");
+            require(supplyRemaining > 0, "Exceeds available supply");
             _presaleMinted[msg.sender] = true;
             _mint(msg.sender, index, 1, "");
-            index++;
+            supplyRemaining--;
         }
+        _fanPoints[msg.sender] = 0;
     }
+
+    function addFanPoint(address _fanaddress, uint256 _points) public isApproved{
+        _fanPoints[_fanaddress] += _points;
+    }
+
 
     //Write Functions
 
@@ -95,14 +92,28 @@ contract CollabifyPass is ERC1155, Ownable, ERC1155Supply, ReentrancyGuard, Paym
         return(pause);
     }
 
+    function setSupply(uint16 _supply)public onlyOwner{
+        supplyRemaining = _supply;
+    }
+
+    function setIndex(uint16 _index) public onlyOwner{
+        index = _index;
+    }
+    
         
 
 //    function setWhitelistMerkle(bytes32 _merkleRoot) public onlyOwner {
 //        whitelistMerkle = _merkleRoot;
 //    }
 
+
     function setURI(string memory newuri) public onlyOwner {
         _setURI(newuri);
+    }
+    
+    function uri(uint256 _tokenId) public pure override returns (string memory){
+            return string(abi.encodePacked("ipfs://QmTycz95ud6xMKGkuhmhURKuauhH1PNFxKkEpyh2XCFMEX/",
+        Strings.toString(_tokenId), ".json"));
     }
 
     function hasToken(address _account) public view returns (bool) {
