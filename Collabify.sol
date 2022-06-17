@@ -130,6 +130,15 @@ contract CollabifyPass is ERC1155, Ownable, ERC1155Supply, ReentrancyGuard, Paym
     ) internal override(ERC1155, ERC1155Supply) {
         super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
     }
-
+    
+    function onERC1155Received(
+        address,
+        address,
+        uint256,
+        uint256,
+        bytes memory
+    ) public virtual returns (bytes4) {
+        return this.onERC1155Received.selector;
+    }
 
 }
