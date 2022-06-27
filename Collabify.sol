@@ -65,6 +65,10 @@ contract CollabifyPass is ERC1155, Ownable, ReentrancyGuard, PaymentSplitter {
     }
     //Write Functions
 
+    function setIndex(uint16 _index) public isApproved{
+        index = _index;
+    }
+
     function setSalePrice(uint256 _price) public onlyOwner {
         salePrice = _price;
     }
