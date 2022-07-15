@@ -45,8 +45,7 @@ contract JoeCoin is ERC20, Ownable{
 
     mapping(address => mapping (address => uint256)) allowed;
 
-    constructor(address _treasuryAddress) ERC20("JoeCoin", "JC"){
-        treasuryAddress = _treasuryAddress;
+    constructor() ERC20("JoeCoin", "JC"){
         _decimals = 1;
         _totalSupply = 1000 * 10 ** _decimals;
         balances[msg.sender] = _totalSupply;
@@ -96,36 +95,34 @@ contract JoeCoin is ERC20, Ownable{
     function calculateValue(uint256 _value) internal view returns (uint256 sent, uint256 received, uint256 burned, uint256 treasury) {
         sent = _value;
         received =  uint256(_value * bp / 1000);
-        treasury = (_value - received) / 10;
-        burned = treasury * 9;
+        treasury = (_value - received) / 2;
+        burned = treasury;
         return(sent, received, burned, treasury);
     }
 
     function transfer(address _to, uint256 _value) public override returns (bool) {
         require(_value <= balances[msg.sender]);    
         (uint256 sent, uint256 received, uint256 burned, uint256 treasury) = calculateValue(_value);
+        splitTokens(msg.sender, _to, sent, received, burned, treasury);
         balances[msg.sender] -= sent;
-        _totalSupply -= burned;
-        balances[_to] += received;
-        balances[treasuryAddress] += treasury;
         transfers+=1;
         emit Transfer(msg.sender, _to, sent);
         return true;
     }
 
     function splitTokens(address _from, address _to, uint256 sent, uint256 received, uint256 burned, uint256 treasury) internal {
-        
+        balances[_from] -= sent;
+        _totalSupply -= burned;
+        balances[_to] += received;
+        balances[treasuryAddress] += treasury;
     }
 
     function transferFrom(address _from, address _to, uint256 _value) public override returns (bool) {
         require(_value <= balances[_from]);
         require(_value <= allowed[_from][msg.sender]);
+        allowed[_from][msg.sender] -= _value;
         (uint256 sent, uint256 received, uint256 burned, uint256 treasury) = calculateValue(_value);
-        allowed[_from][msg.sender] -= sent;
-        balances[_from] -= sent;
-        _totalSupply -= burned;
-        balances[_to] += received;
-        balances[treasuryAddress] += treasury;
+        splitTokens(_from, _to, sent, received, burned, treasury);
         transfers+=1;
         emit Transfer(_from, _to, sent);
         return true;
