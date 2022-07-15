@@ -4,6 +4,8 @@ pragma solidity ^0.8.7;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 
+
+
 contract Ownable {
     address public owner;
     address public newOwner;
@@ -51,7 +53,11 @@ contract JoeCoin is ERC20, Ownable{
         emit Transfer(address(0), msg.sender, _totalSupply);
     }
 
-    function decimals() public view virtual override returns (uint8) {
+    function setTreasuryAddress(address _address) public onlyOwner{
+        treasuryAddress = _address;
+    }
+
+    function decimals() public view override returns (uint8) {
         return _decimals;
     }   
 
@@ -105,14 +111,18 @@ contract JoeCoin is ERC20, Ownable{
         transfers+=1;
         emit Transfer(msg.sender, _to, sent);
         return true;
-    } 
+    }
+
+    function splitTokens(address _from, address _to, uint256 sent, uint256 received, uint256 burned, uint256 treasury) internal {
+        
+    }
 
     function transferFrom(address _from, address _to, uint256 _value) public override returns (bool) {
         require(_value <= balances[_from]);
         require(_value <= allowed[_from][msg.sender]);
         (uint256 sent, uint256 received, uint256 burned, uint256 treasury) = calculateValue(_value);
-        balances[_from] -= sent;
         allowed[_from][msg.sender] -= sent;
+        balances[_from] -= sent;
         _totalSupply -= burned;
         balances[_to] += received;
         balances[treasuryAddress] += treasury;
@@ -128,33 +138,25 @@ contract JoeCoin is ERC20, Ownable{
 
     }
 
-    function getRate(uint256 _halflife) external{
-        require(msg.sender == treasuryAddress);
-        _halflife += 5;
-        uint factor = 50;
-        if(_halflife < 18){
-            uint deltaRate = 2 ** (104*10**10 / (_halflife*10**10));
-            factor += 9500 / deltaRate;
-        }else{
-            factor += 225;
-        }
-        bp = (1000-factor);
-    }
-
     function getBasisPoints() public view returns(uint256){
         return bp;
+    }
+
+    function setBasisPoints(uint _bp) public {
+        require(msg.sender == treasuryAddress);
+        bp = _bp;
     }
 
     function getTransfers() public view returns(uint256){
         return transfers;
     }
 
-    function resetTransfers() public returns(uint256){
+    function resetTransfers() public {
         require(msg.sender == treasuryAddress);
         transfers = 0;
     }
 
-    function setTransfers(uint _transfers)public onlyOwner{
+    function setTransfers(uint _transfers) public onlyOwner{
         transfers = _transfers;
     }
 
@@ -164,7 +166,6 @@ contract JoeCoin is ERC20, Ownable{
 contract PriceChange {
     address addr;
     uint public lastUpdate;
-    JoeCoin c = JoeCoin(addr);
 
     constructor(){
         lastUpdate = block.timestamp;
@@ -175,12 +176,26 @@ contract PriceChange {
     }
     
     function updatePrice() public{
-        require((block.timestamp - lastUpdate) > 86400, "To Soon To Update");
+        //require((block.timestamp - lastUpdate) > 86400, "To Soon To Update");
+        JoeCoin c = JoeCoin(addr);
         lastUpdate = block.timestamp;
-
-        c.getRate(c.getTransfers());
-        c.setTransfers(0);
+       
+        c.setBasisPoints(getRate(c.getTransfers()));
+        c.resetTransfers();
         c.transfer(msg.sender, c.balanceOf(address(this)));
+    }
+
+
+    function getRate(uint256 _halflife) internal pure returns(uint256) {
+        _halflife += 5;
+        uint factor = 50;
+        if(_halflife < 18){
+            uint deltaRate = 2 ** (104*10**10 / (_halflife*10**10));
+            factor += 9500 / deltaRate;
+        }else{
+            factor += 225;
+        }
+        return(1000-factor);
     }
 
 
@@ -188,3 +203,5 @@ contract PriceChange {
     
 
 }
+
+
