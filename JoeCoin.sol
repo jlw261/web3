@@ -1,0 +1,125 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.7;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+
+contract Ownable {
+    address public owner;
+    address public newOwner;
+
+    event OwnershipTransferred(address indexed _from, address indexed _to);
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    modifier onlyOwner {
+      require(msg.sender == owner);
+      _;
+    }
+    function transferOwnership(address _to) public onlyOwner{
+        newOwner = _to;
+    }
+
+    function acceptOwnership() public {
+        require(msg.sender == newOwner);
+        emit OwnershipTransferred(owner, newOwner);
+        owner = newOwner;
+        newOwner = address(0);
+    }
+}
+
+
+contract JoeCoin is ERC20, Ownable{
+
+
+    uint8 _decimals;
+    uint public _totalSupply;
+    uint256 public bp = 900; // 90% in basis points
+
+    mapping(address => uint) balances;
+
+    mapping(address => mapping (address => uint256)) allowed;
+
+    constructor() ERC20("JoeCoin", "JC"){
+        _decimals = 1;
+        _totalSupply = 1000 * 10 ** _decimals;
+        balances[msg.sender] = _totalSupply;
+        emit Transfer(address(0), msg.sender, _totalSupply);
+    }
+
+    function decimals() public view virtual override returns (uint8) {
+        return _decimals;
+    }   
+
+
+    function totalSupply() public override view returns (uint256) {
+        return _totalSupply;
+    }
+
+    function balanceOf(address _owner) public override view returns (uint256 balance) {
+        return balances[_owner];
+    }
+
+    function approve(address _to, uint256 _value) public override returns (bool) {
+        allowed[msg.sender][_to] = _value;
+        emit Approval(msg.sender, _to, _value);
+        return true;
+    }
+
+    function allowance(address _from, address _to) public override view returns (uint256) {
+        return allowed[_from][_to];
+    }
+
+    function increaseAllowance(address _to, uint256 _addedValue) public override returns (bool) {
+        approve(_to, allowed[msg.sender][_to] + _addedValue);
+        return true;
+    }
+
+    function decreaseAllowance(address _to, uint256 _subtractedValue) public override returns (bool) {
+        uint256 currentAllowance = allowed[msg.sender][_to];
+        require(currentAllowance >= _subtractedValue, "ERC20: decreased allowance below zero");
+        approve(_to, currentAllowance - _subtractedValue);
+        return true;
+    }
+
+
+    function calculateValue(uint256 _value) internal view returns (uint256 sent, uint256 received, uint256 burned) {
+        sent = _value;
+        received =  uint256(_value * bp / 1000);
+        burned = _value - received;
+        return(sent, received, burned);
+    }
+
+    function transfer(address _to, uint256 _value) public override returns (bool) {
+        require(_value <= balances[msg.sender]);    
+        (uint256 sent, uint256 received, uint256 burned) = calculateValue(_value);
+        balances[msg.sender] -= sent;
+        _totalSupply -= burned;
+        balances[_to] += received;
+        emit Transfer(msg.sender, _to, sent);
+        return true;
+    } 
+
+    function transferFrom(address _from, address _to, uint256 _value) public override returns (bool) {
+        require(_value <= balances[_from]);
+        require(_value <= allowed[_from][msg.sender]);
+        (uint256 sent, uint256 received, uint256 burned) = calculateValue(_value);
+        balances[_from] -= sent;
+        allowed[_from][msg.sender] -= sent;
+        _totalSupply -= burned;
+        balances[_to] += received;
+        emit Transfer(_from, _to, sent);
+        return true;
+    }
+
+    function mint(uint amount) public onlyOwner returns (bool) {
+        balances[owner] += amount;
+        _totalSupply += amount;
+        return true;
+
+    }
+
+
+}
